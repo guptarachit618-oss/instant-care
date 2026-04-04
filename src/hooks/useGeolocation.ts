@@ -24,9 +24,16 @@ export function useGeolocation(): UseGeolocationReturn {
 
     if (!navigator.geolocation) {
       setError('Geolocation is not supported by your browser');
+      setLocation({ latitude: 40.7128, longitude: -74.006, accuracy: 0 });
       setLoading(false);
       return;
     }
+
+    // Fallback timer in case geolocation hangs
+    const fallbackTimer = setTimeout(() => {
+      setLocation((prev) => prev ?? { latitude: 40.7128, longitude: -74.006, accuracy: 0 });
+      setLoading(false);
+    }, 5000);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
