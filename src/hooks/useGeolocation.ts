@@ -15,7 +15,7 @@ interface UseGeolocationReturn {
 
 const DEFAULT_LOCATION: GeoLocation = { latitude: 40.7128, longitude: -74.006, accuracy: 0 };
 
-export function useGeolocation(): UseGeolocationReturn {
+export function useGeolocation(): UseGeolocationReturn & { setManualLocation: (lat: number, lon: number) => void } {
   const [location, setLocation] = useState<GeoLocation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,10 +59,17 @@ export function useGeolocation(): UseGeolocationReturn {
     );
   }, []);
 
+  const setManualLocation = useCallback((lat: number, lon: number) => {
+    clearTimeout(timerRef.current);
+    setLocation({ latitude: lat, longitude: lon, accuracy: 0 });
+    setError(null);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     getPosition();
     return () => clearTimeout(timerRef.current);
   }, [getPosition]);
 
-  return { location, error, loading, refresh: getPosition };
+  return { location, error, loading, refresh: getPosition, setManualLocation };
 }
