@@ -8,9 +8,10 @@ import HospitalCard from '@/components/HospitalCard';
 import AmbulanceModal from '@/components/AmbulanceModal';
 import TriageBar from '@/components/TriageBar';
 import LoadingScreen from '@/components/LoadingScreen';
+import LocationPicker from '@/components/LocationPicker';
 
 export default function Index() {
-  const { location, loading: geoLoading } = useGeolocation();
+  const { location, loading: geoLoading, refresh: refreshGPS, setManualLocation } = useGeolocation();
   const [radius, setRadius] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
