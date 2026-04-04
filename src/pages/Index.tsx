@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Siren } from 'lucide-react';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useHospitals } from '@/hooks/useHospitals';
 import Header from '@/components/Header';
