@@ -45,6 +45,12 @@ export default function Index() {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Sidebar */}
         <aside className="w-full lg:w-[380px] flex flex-col border-r border-border bg-card/30 order-2 lg:order-1 overflow-hidden">
+          <LocationPicker
+            onLocationSet={setManualLocation}
+            onRequestGPS={refreshGPS}
+            gpsLoading={geoLoading}
+            hasGPS={!!location}
+          />
           <div className="p-4 border-b border-border">
             <TriageBar
               searchQuery={searchQuery}
