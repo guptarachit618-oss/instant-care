@@ -1,6 +1,5 @@
 import { Hospital } from '@/hooks/useHospitals';
-import { MapPin, Bed, Phone, Siren, Star } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { MapPin, Bed, Phone, Siren } from 'lucide-react';
 
 interface Props {
   hospital: Hospital;
@@ -14,16 +13,13 @@ export default function HospitalCard({ hospital, selected, onSelect, onRequestAm
   const bedColor = bedsPercent > 0.2 ? 'bg-success' : bedsPercent > 0.05 ? 'bg-warning' : 'bg-emergency';
 
   return (
-    <motion.div
-      layout
+    <div
       onClick={onSelect}
       className={`relative p-4 rounded-lg cursor-pointer transition-all duration-200 border ${
         selected
           ? 'border-accent bg-accent/10 shadow-emergency'
           : 'border-border bg-card hover:border-muted-foreground/30'
-      }`}
-      whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.99 }}
+      } hover:scale-[1.01] active:scale-[0.99]`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -81,6 +77,6 @@ export default function HospitalCard({ hospital, selected, onSelect, onRequestAm
           </button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
