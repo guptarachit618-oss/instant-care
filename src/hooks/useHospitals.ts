@@ -52,11 +52,17 @@ export function useHospitals(lat: number | null, lon: number | null, radius: num
           out center tags;
         `;
 
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
+
         const res = await fetch('https://overpass-api.de/api/interpreter', {
           method: 'POST',
           body: `data=${encodeURIComponent(query)}`,
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          signal: controller.signal,
         });
+
+        clearTimeout(timeout);
 
         if (!res.ok) throw new Error('Failed to fetch hospitals');
 
@@ -87,9 +93,14 @@ export function useHospitals(lat: number | null, lon: number | null, radius: num
           .filter(Boolean)
           .sort((a: Hospital, b: Hospital) => a.distance - b.distance);
 
-        setHospitals(mapped);
+        if (mapped.length > 0) {
+          setHospitals(mapped);
+        } else {
+          setHospitals(generateFallback(lat, lon));
+        }
       } catch (err: any) {
         setError(err.message);
+        setHospitals(generateFallback(lat, lon));
       } finally {
         setLoading(false);
       }
