@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface GeoLocation {
   latitude: number;
@@ -13,30 +13,35 @@ interface UseGeolocationReturn {
   refresh: () => void;
 }
 
+const DEFAULT_LOCATION: GeoLocation = { latitude: 40.7128, longitude: -74.006, accuracy: 0 };
+
 export function useGeolocation(): UseGeolocationReturn {
   const [location, setLocation] = useState<GeoLocation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const timerRef = useRef<number>();
 
   const getPosition = useCallback(() => {
     setLoading(true);
     setError(null);
 
+    // Always resolve within 4 seconds
+    timerRef.current = window.setTimeout(() => {
+      setLocation((prev) => prev ?? DEFAULT_LOCATION);
+      setLoading(false);
+    }, 4000);
+
     if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser');
-      setLocation({ latitude: 40.7128, longitude: -74.006, accuracy: 0 });
+      clearTimeout(timerRef.current);
+      setError('Geolocation is not supported');
+      setLocation(DEFAULT_LOCATION);
       setLoading(false);
       return;
     }
 
-    // Fallback timer in case geolocation hangs
-    const fallbackTimer = setTimeout(() => {
-      setLocation((prev) => prev ?? { latitude: 40.7128, longitude: -74.006, accuracy: 0 });
-      setLoading(false);
-    }, 5000);
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        clearTimeout(timerRef.current);
         setLocation({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
@@ -45,17 +50,18 @@ export function useGeolocation(): UseGeolocationReturn {
         setLoading(false);
       },
       (err) => {
+        clearTimeout(timerRef.current);
         setError(err.message);
-        // Fallback to a default location (New York)
-        setLocation({ latitude: 40.7128, longitude: -74.006, accuracy: 0 });
+        setLocation(DEFAULT_LOCATION);
         setLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
     );
   }, []);
 
   useEffect(() => {
     getPosition();
+    return () => clearTimeout(timerRef.current);
   }, [getPosition]);
 
   return { location, error, loading, refresh: getPosition };
