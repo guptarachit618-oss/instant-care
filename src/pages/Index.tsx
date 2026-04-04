@@ -8,10 +8,9 @@ import HospitalCard from '@/components/HospitalCard';
 import AmbulanceModal from '@/components/AmbulanceModal';
 import TriageBar from '@/components/TriageBar';
 import LoadingScreen from '@/components/LoadingScreen';
-import LocationPicker from '@/components/LocationPicker';
 
 export default function Index() {
-  const { location, loading: geoLoading, refresh: refreshGPS, setManualLocation } = useGeolocation();
+  const { location, loading: geoLoading } = useGeolocation();
   const [radius, setRadius] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -45,12 +44,6 @@ export default function Index() {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Sidebar */}
         <aside className="w-full lg:w-[380px] flex flex-col border-r border-border bg-card/30 order-2 lg:order-1 overflow-hidden">
-          <LocationPicker
-            onLocationSet={setManualLocation}
-            onRequestGPS={refreshGPS}
-            gpsLoading={geoLoading}
-            hasGPS={!!location}
-          />
           <div className="p-4 border-b border-border">
             <TriageBar
               searchQuery={searchQuery}
