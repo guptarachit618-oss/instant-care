@@ -29,6 +29,33 @@ function generateBeds(): { total: number; available: number } {
   return { total, available };
 }
 
+const FALLBACK_NAMES = [
+  'City General Hospital', 'Memorial Medical Center', 'St. Mary\'s Hospital',
+  'Regional Health Center', 'University Hospital', 'Community Medical Center',
+  'Children\'s Hospital', 'Veterans Medical Center',
+];
+
+function generateFallback(lat: number, lon: number): Hospital[] {
+  return FALLBACK_NAMES.map((name, i) => {
+    const angle = (i / FALLBACK_NAMES.length) * Math.PI * 2;
+    const dist = 1 + Math.random() * 15;
+    const dlat = (dist / 111) * Math.cos(angle);
+    const dlon = (dist / (111 * Math.cos((lat * Math.PI) / 180))) * Math.sin(angle);
+    return {
+      id: `fallback-${i}`,
+      name,
+      latitude: lat + dlat,
+      longitude: lon + dlon,
+      distance: Math.round(dist * 10) / 10,
+      beds: generateBeds(),
+      phone: '+1-555-' + String(100 + i).padStart(3, '0') + '-0000',
+      address: 'Address unavailable',
+      emergency: Math.random() > 0.3,
+      type: 'General',
+    };
+  }).sort((a, b) => a.distance - b.distance);
+}
+
 export function useHospitals(lat: number | null, lon: number | null, radius: number = 25) {
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [loading, setLoading] = useState(false);
