@@ -1,5 +1,4 @@
 import { Siren, MapPin, Wifi } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 interface Props {
   locationName?: string;
@@ -10,13 +9,9 @@ export default function Header({ locationName, online }: Props) {
   return (
     <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/50 glass">
       <div className="flex items-center gap-2.5">
-        <motion.div
-          className="w-9 h-9 rounded-lg bg-gradient-emergency flex items-center justify-center shadow-emergency"
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
+        <div className="w-9 h-9 rounded-lg bg-gradient-emergency flex items-center justify-center shadow-emergency animate-pulse-slow">
           <Siren className="w-5 h-5 text-primary-foreground" />
-        </motion.div>
+        </div>
         <div>
           <h1 className="font-display font-bold text-foreground text-lg leading-none">
             Med<span className="text-gradient-emergency">Route</span>

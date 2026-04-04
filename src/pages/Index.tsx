@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { AnimatePresence } from 'framer-motion';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useHospitals } from '@/hooks/useHospitals';
 import Header from '@/components/Header';
@@ -100,16 +99,14 @@ export default function Index() {
       </div>
 
       {/* Ambulance modal */}
-      <AnimatePresence>
-        {ambulanceHospital && (
-          <AmbulanceModal
-            hospital={ambulanceHospital}
-            userLat={lat}
-            userLon={lon}
-            onClose={() => setAmbulanceHospitalId(null)}
-          />
-        )}
-      </AnimatePresence>
+      {ambulanceHospital && (
+        <AmbulanceModal
+          hospital={ambulanceHospital}
+          userLat={lat}
+          userLon={lon}
+          onClose={() => setAmbulanceHospitalId(null)}
+        />
+      )}
     </div>
   );
 }
