@@ -39,26 +39,19 @@ export default function HospitalCard({ hospital, selected, onSelect, onRequestAm
             <span className="truncate">{hospital.address}</span>
           </div>
 
-          {/* Bed availability */}
-          <div className="mt-2 space-y-1">
-            <div className="flex items-center gap-2">
-              <Bed className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-foreground">
-                {hospital.beds.available} beds available
-              </span>
-              <span className="text-xs text-muted-foreground">
-                of {hospital.beds.total} total
-              </span>
+          {/* Bed bar */}
+          <div className="mt-2 flex items-center gap-2">
+            <Bed className="w-3.5 h-3.5 text-muted-foreground" />
+            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${bedColor} transition-all`}
+                style={{ width: `${Math.max(bedsPercent * 100, 2)}%` }}
+              />
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3.5" />
-              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${bedColor} transition-all`}
-                  style={{ width: `${Math.max(bedsPercent * 100, 2)}%` }}
-                />
-              </div>
-            </div>
+            <span className="text-xs font-medium text-foreground">
+              {hospital.beds.available}
+              <span className="text-muted-foreground">/{hospital.beds.total}</span>
+            </span>
           </div>
         </div>
 

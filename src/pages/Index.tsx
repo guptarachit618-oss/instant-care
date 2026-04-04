@@ -91,9 +91,9 @@ export default function Index() {
               if (nearest) setAmbulanceHospitalId(nearest.id);
             }}
             disabled={filtered.length === 0}
-            className="absolute bottom-6 right-6 z-[1000] w-20 h-20 rounded-full bg-gradient-emergency shadow-emergency flex items-center justify-center text-primary-foreground font-display font-bold text-sm hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 animate-pulse-emergency"
+            className="absolute bottom-6 right-6 z-[1000] w-16 h-16 rounded-full bg-gradient-emergency shadow-emergency flex items-center justify-center text-primary-foreground font-display font-bold text-xs hover:scale-105 active:scale-95 transition-transform disabled:opacity-50"
           >
-            EMERGENCY
+            SOS
           </button>
         </main>
       </div>
