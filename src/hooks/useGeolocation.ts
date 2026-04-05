@@ -1,15 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-interface GeoLocation {
+export interface GeoLocation {
   latitude: number;
   longitude: number;
   accuracy: number;
 }
 
+export type LocationMode = 'gps' | 'manual';
+
 interface UseGeolocationReturn {
   location: GeoLocation | null;
   error: string | null;
   loading: boolean;
+  mode: LocationMode;
+  setMode: (mode: LocationMode) => void;
+  setManualLocation: (lat: number, lon: number) => void;
   refresh: () => void;
 }
 
@@ -19,13 +24,15 @@ export function useGeolocation(): UseGeolocationReturn {
   const [location, setLocation] = useState<GeoLocation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState<LocationMode>('gps');
   const timerRef = useRef<number>();
 
   const getPosition = useCallback(() => {
+    if (mode === 'manual') return; // Don't auto-fetch in manual mode
+    
     setLoading(true);
     setError(null);
 
-    // Always resolve within 4 seconds
     timerRef.current = window.setTimeout(() => {
       setLocation((prev) => prev ?? DEFAULT_LOCATION);
       setLoading(false);
@@ -57,12 +64,28 @@ export function useGeolocation(): UseGeolocationReturn {
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
     );
+  }, [mode]);
+
+  const setManualLocation = useCallback((lat: number, lon: number) => {
+    setMode('manual');
+    setError(null);
+    setLoading(false);
+    setLocation({ latitude: lat, longitude: lon, accuracy: 0 });
+  }, []);
+
+  const handleSetMode = useCallback((newMode: LocationMode) => {
+    setMode(newMode);
+    if (newMode === 'gps') {
+      setLocation(null);
+    }
   }, []);
 
   useEffect(() => {
-    getPosition();
+    if (mode === 'gps') {
+      getPosition();
+    }
     return () => clearTimeout(timerRef.current);
-  }, [getPosition]);
+  }, [getPosition, mode]);
 
-  return { location, error, loading, refresh: getPosition };
+  return { location, error, loading, mode, setMode: handleSetMode, setManualLocation, refresh: getPosition };
 }

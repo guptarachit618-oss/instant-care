@@ -7,10 +7,11 @@ import EmergencyMap from '@/components/EmergencyMap';
 import HospitalCard from '@/components/HospitalCard';
 import AmbulanceModal from '@/components/AmbulanceModal';
 import TriageBar from '@/components/TriageBar';
+import LocationPicker from '@/components/LocationPicker';
 import LoadingScreen from '@/components/LoadingScreen';
 
 export default function Index() {
-  const { location, loading: geoLoading } = useGeolocation();
+  const { location, loading: geoLoading, error: geoError, mode, setMode, setManualLocation } = useGeolocation();
   const [radius, setRadius] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -44,7 +45,15 @@ export default function Index() {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Sidebar */}
         <aside className="w-full lg:w-[380px] flex flex-col border-r border-border bg-card/30 order-2 lg:order-1 overflow-hidden">
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border space-y-3">
+            <LocationPicker
+              mode={mode}
+              onSetMode={setMode}
+              onSetManualLocation={setManualLocation}
+              currentLat={location?.latitude ?? null}
+              currentLon={location?.longitude ?? null}
+              geoError={geoError}
+            />
             <TriageBar
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
