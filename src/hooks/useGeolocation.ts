@@ -25,67 +25,105 @@ export function useGeolocation(): UseGeolocationReturn {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<LocationMode>('gps');
-  const timerRef = useRef<number>();
+  const watchIdRef = useRef<number | null>(null);
+  const fallbackTimerRef = useRef<number>();
 
-  const getPosition = useCallback(() => {
-    if (mode === 'manual') return; // Don't auto-fetch in manual mode
-    
+  const clearWatch = useCallback(() => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    clearTimeout(fallbackTimerRef.current);
+  }, []);
+
+  const startGps = useCallback(() => {
     setLoading(true);
     setError(null);
 
-    timerRef.current = window.setTimeout(() => {
-      setLocation((prev) => prev ?? DEFAULT_LOCATION);
+    // Fallback to default after 10s if no position received
+    fallbackTimerRef.current = window.setTimeout(() => {
+      setLocation((prev) => {
+        if (prev) return prev; // already got a fix
+        setError('GPS timed out — using default location');
+        return DEFAULT_LOCATION;
+      });
       setLoading(false);
-    }, 4000);
+    }, 10000);
 
     if (!navigator.geolocation) {
-      clearTimeout(timerRef.current);
-      setError('Geolocation is not supported');
+      clearTimeout(fallbackTimerRef.current);
+      setError('Geolocation is not supported by this browser');
       setLocation(DEFAULT_LOCATION);
       setLoading(false);
       return;
     }
 
+    // First try a quick low-accuracy fix, then upgrade with high accuracy
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        clearTimeout(timerRef.current);
         setLocation({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
         });
         setLoading(false);
+        clearTimeout(fallbackTimerRef.current);
       },
-      (err) => {
-        clearTimeout(timerRef.current);
-        setError(err.message);
-        setLocation(DEFAULT_LOCATION);
+      () => {
+        // Low-accuracy failed, that's ok — watchPosition will keep trying
+      },
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+    );
+
+    // Watch for continuous updates (high accuracy)
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        clearTimeout(fallbackTimerRef.current);
+        setLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        });
+        setError(null);
         setLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      (err) => {
+        // Only set error + fallback if we never got a position
+        setLocation((prev) => {
+          if (prev && prev !== DEFAULT_LOCATION) return prev;
+          setError(err.message || 'Unable to detect location');
+          return DEFAULT_LOCATION;
+        });
+        setLoading(false);
+        clearTimeout(fallbackTimerRef.current);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
-  }, [mode]);
+  }, []);
 
   const setManualLocation = useCallback((lat: number, lon: number) => {
+    clearWatch();
     setMode('manual');
     setError(null);
     setLoading(false);
     setLocation({ latitude: lat, longitude: lon, accuracy: 0 });
-  }, []);
+  }, [clearWatch]);
 
   const handleSetMode = useCallback((newMode: LocationMode) => {
     setMode(newMode);
     if (newMode === 'gps') {
       setLocation(null);
+    } else {
+      clearWatch();
     }
-  }, []);
+  }, [clearWatch]);
 
   useEffect(() => {
     if (mode === 'gps') {
-      getPosition();
+      startGps();
     }
-    return () => clearTimeout(timerRef.current);
-  }, [getPosition, mode]);
+    return () => clearWatch();
+  }, [mode, startGps, clearWatch]);
 
-  return { location, error, loading, mode, setMode: handleSetMode, setManualLocation, refresh: getPosition };
+  return { location, error, loading, mode, setMode: handleSetMode, setManualLocation, refresh: startGps };
 }
