@@ -7,10 +7,11 @@ import EmergencyMap from '@/components/EmergencyMap';
 import HospitalCard from '@/components/HospitalCard';
 import AmbulanceModal from '@/components/AmbulanceModal';
 import TriageBar from '@/components/TriageBar';
+import LocationPicker from '@/components/LocationPicker';
 import LoadingScreen from '@/components/LoadingScreen';
 
 export default function Index() {
-  const { location, loading: geoLoading } = useGeolocation();
+  const { location, loading: geoLoading, error: geoError, mode, setMode, setManualLocation } = useGeolocation();
   const [radius, setRadius] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
