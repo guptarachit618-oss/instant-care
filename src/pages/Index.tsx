@@ -45,7 +45,15 @@ export default function Index() {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Sidebar */}
         <aside className="w-full lg:w-[380px] flex flex-col border-r border-border bg-card/30 order-2 lg:order-1 overflow-hidden">
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border space-y-3">
+            <LocationPicker
+              mode={mode}
+              onSetMode={setMode}
+              onSetManualLocation={setManualLocation}
+              currentLat={location?.latitude ?? null}
+              currentLon={location?.longitude ?? null}
+              geoError={geoError}
+            />
             <TriageBar
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
