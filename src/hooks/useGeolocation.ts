@@ -24,9 +24,10 @@ export function useGeolocation(): UseGeolocationReturn {
   const [location, setLocation] = useState<GeoLocation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<LocationMode>('gps');
+  const [mode, setModeState] = useState<LocationMode>('gps');
   const watchIdRef = useRef<number | null>(null);
   const fallbackTimerRef = useRef<number>();
+  const gotFixRef = useRef(false);
 
   const clearWatch = useCallback(() => {
     if (watchIdRef.current !== null) {
@@ -37,81 +38,96 @@ export function useGeolocation(): UseGeolocationReturn {
   }, []);
 
   const startGps = useCallback(() => {
+    gotFixRef.current = false;
     setLoading(true);
     setError(null);
 
-    // Fallback to default after 10s if no position received
-    fallbackTimerRef.current = window.setTimeout(() => {
-      setLocation((prev) => {
-        if (prev) return prev; // already got a fix
-        setError('GPS timed out — using default location');
-        return DEFAULT_LOCATION;
-      });
-      setLoading(false);
-    }, 10000);
-
     if (!navigator.geolocation) {
-      clearTimeout(fallbackTimerRef.current);
-      setError('Geolocation is not supported by this browser');
+      setError('Geolocation not supported — use Manual mode to set your location');
       setLocation(DEFAULT_LOCATION);
       setLoading(false);
       return;
     }
 
-    // First try a quick low-accuracy fix, then upgrade with high accuracy
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-        });
+    // Check permission first via Permissions API
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+        if (result.state === 'denied') {
+          setError('Location permission denied — use Manual mode or tap the map to set location');
+          setLocation(DEFAULT_LOCATION);
+          setLoading(false);
+        }
+      }).catch(() => {});
+    }
+
+    // Fallback after 8s
+    fallbackTimerRef.current = window.setTimeout(() => {
+      if (!gotFixRef.current) {
+        setError('GPS timed out — use Manual mode or tap the map');
+        setLocation(DEFAULT_LOCATION);
         setLoading(false);
-        clearTimeout(fallbackTimerRef.current);
+      }
+    }, 8000);
+
+    // Try low-accuracy first
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (!gotFixRef.current) {
+          gotFixRef.current = true;
+          clearTimeout(fallbackTimerRef.current);
+          setLocation({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+          });
+          setError(null);
+          setLoading(false);
+        }
       },
-      () => {
-        // Low-accuracy failed, that's ok — watchPosition will keep trying
-      },
+      () => {},
       { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
     );
 
-    // Watch for continuous updates (high accuracy)
+    // Then watch high-accuracy
     watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
+      (pos) => {
+        gotFixRef.current = true;
         clearTimeout(fallbackTimerRef.current);
         setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
         });
         setError(null);
         setLoading(false);
       },
       (err) => {
-        // Only set error + fallback if we never got a position
-        setLocation((prev) => {
-          if (prev && prev !== DEFAULT_LOCATION) return prev;
-          setError(err.message || 'Unable to detect location');
-          return DEFAULT_LOCATION;
-        });
-        setLoading(false);
-        clearTimeout(fallbackTimerRef.current);
+        if (!gotFixRef.current) {
+          setError(err.code === 1
+            ? 'Location permission denied — use Manual mode or tap the map'
+            : 'GPS unavailable — use Manual mode or tap the map');
+          setLocation(DEFAULT_LOCATION);
+          setLoading(false);
+          clearTimeout(fallbackTimerRef.current);
+        }
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
   }, []);
 
   const setManualLocation = useCallback((lat: number, lon: number) => {
     clearWatch();
-    setMode('manual');
+    gotFixRef.current = true;
+    setModeState('manual');
     setError(null);
     setLoading(false);
     setLocation({ latitude: lat, longitude: lon, accuracy: 0 });
   }, [clearWatch]);
 
   const handleSetMode = useCallback((newMode: LocationMode) => {
-    setMode(newMode);
+    setModeState(newMode);
     if (newMode === 'gps') {
+      gotFixRef.current = false;
       setLocation(null);
     } else {
       clearWatch();

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Siren } from 'lucide-react';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useHospitals } from '@/hooks/useHospitals';
@@ -9,6 +9,7 @@ import AmbulanceModal from '@/components/AmbulanceModal';
 import TriageBar from '@/components/TriageBar';
 import LocationPicker from '@/components/LocationPicker';
 import LoadingScreen from '@/components/LoadingScreen';
+import EmergencyNumbers from '@/components/EmergencyNumbers';
 
 export default function Index() {
   const { location, loading: geoLoading, error: geoError, mode, setMode, setManualLocation } = useGeolocation();
@@ -17,11 +18,10 @@ export default function Index() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [ambulanceHospitalId, setAmbulanceHospitalId] = useState<string | null>(null);
 
-  const { hospitals, loading: hospitalsLoading } = useHospitals(
-    location?.latitude ?? null,
-    location?.longitude ?? null,
-    radius
-  );
+  const lat = location?.latitude ?? null;
+  const lon = location?.longitude ?? null;
+
+  const { hospitals, loading: hospitalsLoading } = useHospitals(lat, lon, radius);
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return hospitals;
@@ -33,10 +33,18 @@ export default function Index() {
 
   const ambulanceHospital = ambulanceHospitalId ? hospitals.find((h) => h.id === ambulanceHospitalId) : null;
 
+  const handleMapClick = useCallback((clickLat: number, clickLon: number) => {
+    setManualLocation(clickLat, clickLon);
+  }, [setManualLocation]);
+
+  const handleSelectHospital = useCallback((id: string) => {
+    setSelectedId(prev => prev === id ? null : id);
+  }, []);
+
   if (geoLoading && !location) return <LoadingScreen />;
 
-  const lat = location?.latitude ?? 40.7128;
-  const lon = location?.longitude ?? -74.006;
+  const displayLat = location?.latitude ?? 40.7128;
+  const displayLon = location?.longitude ?? -74.006;
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -71,8 +79,10 @@ export default function Index() {
                 key={h.id}
                 hospital={h}
                 selected={h.id === selectedId}
-                onSelect={() => setSelectedId(h.id === selectedId ? null : h.id)}
+                onSelect={() => handleSelectHospital(h.id)}
                 onRequestAmbulance={() => setAmbulanceHospitalId(h.id)}
+                userLat={displayLat}
+                userLon={displayLon}
               />
             ))}
             {!hospitalsLoading && filtered.length === 0 && (
@@ -82,17 +92,27 @@ export default function Index() {
               </div>
             )}
           </div>
+
+          <EmergencyNumbers />
         </aside>
 
         {/* Map */}
         <main className="flex-1 relative order-1 lg:order-2 min-h-[300px] lg:min-h-0">
           <EmergencyMap
-            userLat={lat}
-            userLon={lon}
+            userLat={displayLat}
+            userLon={displayLon}
             hospitals={filtered}
             selectedId={selectedId}
-            onSelectHospital={(id) => setSelectedId(id)}
+            onSelectHospital={handleSelectHospital}
+            onMapClick={handleMapClick}
           />
+
+          {/* Tap map hint */}
+          {geoError && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-card/90 border border-border rounded-lg px-4 py-2 text-xs text-muted-foreground backdrop-blur-sm">
+              📍 Tap anywhere on the map to set your location
+            </div>
+          )}
 
           {/* Quick SOS */}
           <button
@@ -101,20 +121,19 @@ export default function Index() {
               if (nearest) setAmbulanceHospitalId(nearest.id);
             }}
             disabled={filtered.length === 0}
-            className="absolute bottom-6 right-6 z-[1000] w-24 h-24 rounded-full bg-gradient-emergency shadow-emergency flex flex-col items-center justify-center text-primary-foreground font-display font-bold hover:scale-110 active:scale-95 transition-transform disabled:opacity-50 animate-pulse-emergency"
+            className="absolute bottom-6 right-6 z-[1000] w-28 h-28 rounded-full bg-gradient-emergency shadow-emergency flex flex-col items-center justify-center text-primary-foreground font-display font-bold hover:scale-110 active:scale-95 transition-transform disabled:opacity-50 animate-pulse-emergency"
           >
-            <Siren className="w-7 h-7 mb-1" />
+            <Siren className="w-8 h-8 mb-1" />
             <span className="text-[11px] leading-tight tracking-wide">EMERGENCY</span>
           </button>
         </main>
       </div>
 
-      {/* Ambulance modal */}
       {ambulanceHospital && (
         <AmbulanceModal
           hospital={ambulanceHospital}
-          userLat={lat}
-          userLon={lon}
+          userLat={displayLat}
+          userLon={displayLon}
           onClose={() => setAmbulanceHospitalId(null)}
         />
       )}

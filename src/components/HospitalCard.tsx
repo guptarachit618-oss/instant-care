@@ -1,16 +1,21 @@
+import { memo } from 'react';
 import { Hospital } from '@/hooks/useHospitals';
-import { MapPin, Bed, Phone, Siren } from 'lucide-react';
+import { MapPin, Bed, Phone, Siren, Navigation } from 'lucide-react';
 
 interface Props {
   hospital: Hospital;
   selected: boolean;
   onSelect: () => void;
   onRequestAmbulance: () => void;
+  userLat?: number;
+  userLon?: number;
 }
 
-export default function HospitalCard({ hospital, selected, onSelect, onRequestAmbulance }: Props) {
+const HospitalCard = memo(function HospitalCard({ hospital, selected, onSelect, onRequestAmbulance, userLat, userLon }: Props) {
   const bedsPercent = hospital.beds.available / hospital.beds.total;
   const bedColor = bedsPercent > 0.2 ? 'bg-success' : bedsPercent > 0.05 ? 'bg-warning' : 'bg-emergency';
+
+  const directionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat ?? ''},${userLon ?? ''}&destination=${hospital.latitude},${hospital.longitude}&travelmode=driving`;
 
   return (
     <div
@@ -19,7 +24,7 @@ export default function HospitalCard({ hospital, selected, onSelect, onRequestAm
         selected
           ? 'border-accent bg-accent/10 shadow-emergency'
           : 'border-border bg-card hover:border-muted-foreground/30'
-      } hover:scale-[1.01] active:scale-[0.99]`}
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -33,13 +38,12 @@ export default function HospitalCard({ hospital, selected, onSelect, onRequestAm
           </div>
 
           <div className="flex items-center gap-1 mt-1 text-muted-foreground text-xs">
-            <MapPin className="w-3 h-3" />
-            <span>{hospital.distance} km</span>
+            <MapPin className="w-3 h-3 shrink-0" />
+            <span className="shrink-0">{hospital.distance} km</span>
             <span className="mx-1">•</span>
             <span className="truncate">{hospital.address}</span>
           </div>
 
-          {/* Bed bar */}
           <div className="mt-2 flex items-center gap-2">
             <Bed className="w-3.5 h-3.5 text-muted-foreground" />
             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -55,8 +59,17 @@ export default function HospitalCard({ hospital, selected, onSelect, onRequestAm
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex flex-col gap-1.5 shrink-0">
+          <a
+            href={directionsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="p-2 rounded-md bg-success/15 text-success hover:bg-success/25 transition-colors"
+            title="Get directions"
+          >
+            <Navigation className="w-4 h-4" />
+          </a>
           <a
             href={`tel:${hospital.phone}`}
             onClick={(e) => e.stopPropagation()}
@@ -79,4 +92,6 @@ export default function HospitalCard({ hospital, selected, onSelect, onRequestAm
       </div>
     </div>
   );
-}
+});
+
+export default HospitalCard;
