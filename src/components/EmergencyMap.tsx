@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, memo } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -62,22 +62,6 @@ interface Props {
   onMapClick?: (lat: number, lon: number) => void;
 }
 
-const HospitalMarker = memo(({ h, selected, onSelect }: { h: Hospital; selected: boolean; onSelect: () => void }) => (
-  <Marker
-    position={[h.latitude, h.longitude]}
-    icon={selected ? selectedHospitalIcon : hospitalIcon}
-    eventHandlers={{ click: onSelect }}
-  >
-    <Popup>
-      <div className="text-sm">
-        <p className="font-bold">{h.name}</p>
-        <p>{h.distance} km away</p>
-        <p className="text-green-400">{h.beds.available} beds available</p>
-      </div>
-    </Popup>
-  </Marker>
-));
-
 export default function EmergencyMap({ userLat, userLon, hospitals, selectedId, onSelectHospital, onMapClick }: Props) {
   const flyTarget: [number, number] = selectedId
     ? (() => {
@@ -117,12 +101,20 @@ export default function EmergencyMap({ userLat, userLon, hospitals, selectedId, 
       />
 
       {hospitals.map((h) => (
-        <HospitalMarker
+        <Marker
           key={h.id}
-          h={h}
-          selected={h.id === selectedId}
-          onSelect={() => onSelectHospital(h.id)}
-        />
+          position={[h.latitude, h.longitude]}
+          icon={h.id === selectedId ? selectedHospitalIcon : hospitalIcon}
+          eventHandlers={{ click: () => onSelectHospital(h.id) }}
+        >
+          <Popup>
+            <div className="text-sm">
+              <p className="font-bold">{h.name}</p>
+              <p>{h.distance} km away</p>
+              <p style={{ color: 'hsl(145,65%,42%)' }}>{h.beds.available} beds available</p>
+            </div>
+          </Popup>
+        </Marker>
       ))}
     </MapContainer>
   );
