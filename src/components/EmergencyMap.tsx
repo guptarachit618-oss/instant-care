@@ -1,10 +1,9 @@
-import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import { useEffect, useRef, useCallback, memo } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Hospital } from '@/hooks/useHospitals';
 
-// Fix default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -45,21 +44,51 @@ function FlyTo({ center }: { center: [number, number] }) {
   return null;
 }
 
+function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lon: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
 interface Props {
   userLat: number;
   userLon: number;
   hospitals: Hospital[];
   selectedId: string | null;
   onSelectHospital: (id: string) => void;
+  onMapClick?: (lat: number, lon: number) => void;
 }
 
-export default function EmergencyMap({ userLat, userLon, hospitals, selectedId, onSelectHospital }: Props) {
+const HospitalMarker = memo(({ h, selected, onSelect }: { h: Hospital; selected: boolean; onSelect: () => void }) => (
+  <Marker
+    position={[h.latitude, h.longitude]}
+    icon={selected ? selectedHospitalIcon : hospitalIcon}
+    eventHandlers={{ click: onSelect }}
+  >
+    <Popup>
+      <div className="text-sm">
+        <p className="font-bold">{h.name}</p>
+        <p>{h.distance} km away</p>
+        <p className="text-green-400">{h.beds.available} beds available</p>
+      </div>
+    </Popup>
+  </Marker>
+));
+
+export default function EmergencyMap({ userLat, userLon, hospitals, selectedId, onSelectHospital, onMapClick }: Props) {
   const flyTarget: [number, number] = selectedId
     ? (() => {
         const h = hospitals.find((x) => x.id === selectedId);
         return h ? [h.latitude, h.longitude] : [userLat, userLon];
       })()
     : [userLat, userLon];
+
+  const handleMapClick = useCallback((lat: number, lon: number) => {
+    onMapClick?.(lat, lon);
+  }, [onMapClick]);
 
   return (
     <MapContainer
@@ -73,8 +102,8 @@ export default function EmergencyMap({ userLat, userLon, hospitals, selectedId, 
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <FlyTo center={flyTarget} />
+      {onMapClick && <MapClickHandler onMapClick={handleMapClick} />}
 
-      {/* User location */}
       <Marker position={[userLat, userLon]} icon={userIcon}>
         <Popup>
           <span className="font-semibold">Your Location</span>
@@ -87,22 +116,13 @@ export default function EmergencyMap({ userLat, userLon, hospitals, selectedId, 
         pathOptions={{ color: 'hsl(210,90%,55%)', fillColor: 'hsl(210,90%,55%)', fillOpacity: 0.1, weight: 1 }}
       />
 
-      {/* Hospitals */}
       {hospitals.map((h) => (
-        <Marker
+        <HospitalMarker
           key={h.id}
-          position={[h.latitude, h.longitude]}
-          icon={h.id === selectedId ? selectedHospitalIcon : hospitalIcon}
-          eventHandlers={{ click: () => onSelectHospital(h.id) }}
-        >
-          <Popup>
-            <div className="text-sm">
-              <p className="font-bold">{h.name}</p>
-              <p>{h.distance} km away</p>
-              <p className="text-green-400">{h.beds.available} beds available</p>
-            </div>
-          </Popup>
-        </Marker>
+          h={h}
+          selected={h.id === selectedId}
+          onSelect={() => onSelectHospital(h.id)}
+        />
       ))}
     </MapContainer>
   );

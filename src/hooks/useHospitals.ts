@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export interface Hospital {
   id: string;
   name: string;
   latitude: number;
   longitude: number;
-  distance: number; // km
+  distance: number;
   beds: { total: number; available: number };
   phone: string;
   address: string;
@@ -23,22 +23,28 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function generateBeds(): { total: number; available: number } {
-  const total = Math.floor(Math.random() * 400) + 50;
-  const available = Math.floor(Math.random() * Math.min(total, 40));
-  return { total, available };
+// Stable beds per hospital ID
+const bedsCache = new Map<string, { total: number; available: number }>();
+function getBeds(id: string): { total: number; available: number } {
+  if (!bedsCache.has(id)) {
+    const total = Math.floor(Math.random() * 400) + 50;
+    const available = Math.floor(Math.random() * Math.min(total, 40));
+    bedsCache.set(id, { total, available });
+  }
+  return bedsCache.get(id)!;
 }
 
 const FALLBACK_NAMES = [
-  'City General Hospital', 'Memorial Medical Center', 'St. Mary\'s Hospital',
+  'City General Hospital', 'Memorial Medical Center', "St. Mary's Hospital",
   'Regional Health Center', 'University Hospital', 'Community Medical Center',
-  'Children\'s Hospital', 'Veterans Medical Center',
+  "Children's Hospital", 'Veterans Medical Center',
 ];
 
-function generateFallback(lat: number, lon: number): Hospital[] {
+function generateFallback(lat: number, lon: number, radius: number): Hospital[] {
   return FALLBACK_NAMES.map((name, i) => {
     const angle = (i / FALLBACK_NAMES.length) * Math.PI * 2;
-    const dist = 1 + Math.random() * 15;
+    const maxDist = Math.min(radius, 20);
+    const dist = 1 + Math.random() * maxDist;
     const dlat = (dist / 111) * Math.cos(angle);
     const dlon = (dist / (111 * Math.cos((lat * Math.PI) / 180))) * Math.sin(angle);
     return {
@@ -47,22 +53,28 @@ function generateFallback(lat: number, lon: number): Hospital[] {
       latitude: lat + dlat,
       longitude: lon + dlon,
       distance: Math.round(dist * 10) / 10,
-      beds: generateBeds(),
+      beds: getBeds(`fallback-${i}`),
       phone: '+1-555-' + String(100 + i).padStart(3, '0') + '-0000',
-      address: 'Address unavailable',
+      address: `${Math.round(Math.abs(lat + dlat) * 100) / 100}°, ${Math.round(Math.abs(lon + dlon) * 100) / 100}° (approximate)`,
       emergency: Math.random() > 0.3,
       type: 'General',
     };
-  }).sort((a, b) => a.distance - b.distance);
+  }).filter(h => h.distance <= radius).sort((a, b) => a.distance - b.distance);
 }
 
 export function useHospitals(lat: number | null, lon: number | null, radius: number = 25) {
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (lat === null || lon === null) return;
+
+    // Abort previous request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     const fetchHospitals = async () => {
       setLoading(true);
@@ -79,7 +91,6 @@ export function useHospitals(lat: number | null, lon: number | null, radius: num
           out center tags;
         `;
 
-        const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 12000);
 
         const res = await fetch('https://overpass-api.de/api/interpreter', {
@@ -90,8 +101,7 @@ export function useHospitals(lat: number | null, lon: number | null, radius: num
         });
 
         clearTimeout(timeout);
-
-        if (!res.ok) throw new Error('Failed to fetch hospitals');
+        if (!res.ok) throw new Error('Failed to fetch');
 
         const data = await res.json();
 
@@ -102,7 +112,14 @@ export function useHospitals(lat: number | null, lon: number | null, radius: num
             if (!elLat || !elLon) return null;
 
             const dist = haversine(lat, lon, elLat, elLon);
+            if (dist > radius) return null;
+
             const name = el.tags?.name || el.tags?.['name:en'] || 'Unknown Hospital';
+            const street = el.tags?.['addr:street'] || el.tags?.['addr:full'] || '';
+            const city = el.tags?.['addr:city'] || el.tags?.['addr:suburb'] || '';
+            const country = el.tags?.['addr:country'] || '';
+            const address = [street, city, country].filter(Boolean).join(', ')
+              || `Near ${elLat.toFixed(4)}°, ${elLon.toFixed(4)}°`;
 
             return {
               id: String(el.id),
@@ -110,9 +127,9 @@ export function useHospitals(lat: number | null, lon: number | null, radius: num
               latitude: elLat,
               longitude: elLon,
               distance: Math.round(dist * 10) / 10,
-              beds: generateBeds(),
-              phone: el.tags?.phone || el.tags?.['contact:phone'] || '+1-XXX-XXX-XXXX',
-              address: [el.tags?.['addr:street'], el.tags?.['addr:city'], el.tags?.['addr:country']].filter(Boolean).join(', ') || 'Address unavailable',
+              beds: getBeds(String(el.id)),
+              phone: el.tags?.phone || el.tags?.['contact:phone'] || 'N/A',
+              address,
               emergency: el.tags?.emergency === 'yes' || Math.random() > 0.3,
               type: el.tags?.['healthcare:speciality'] || 'General',
             } as Hospital;
@@ -120,20 +137,18 @@ export function useHospitals(lat: number | null, lon: number | null, radius: num
           .filter(Boolean)
           .sort((a: Hospital, b: Hospital) => a.distance - b.distance);
 
-        if (mapped.length > 0) {
-          setHospitals(mapped);
-        } else {
-          setHospitals(generateFallback(lat, lon));
-        }
+        setHospitals(mapped.length > 0 ? mapped : generateFallback(lat, lon, radius));
       } catch (err: any) {
+        if (err.name === 'AbortError') return;
         setError(err.message);
-        setHospitals(generateFallback(lat, lon));
+        setHospitals(generateFallback(lat, lon, radius));
       } finally {
         setLoading(false);
       }
     };
 
     fetchHospitals();
+    return () => controller.abort();
   }, [lat, lon, radius]);
 
   return { hospitals, loading, error };
